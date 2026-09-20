@@ -3,3 +3,5 @@ dist/
 public/ocr/
 .DS_Store
 public/data/prices.csv
+public/data/zip-geography.json
+public/data/zip-geography-LICENSE.txt

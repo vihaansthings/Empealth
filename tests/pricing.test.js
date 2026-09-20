@@ -1,0 +1,14 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {parseCSV,analyze} from '../src/engine.js';
+import {createPricingModel} from '../src/pricing.js';
+const data=parseCSV(readFileSync('public/data/prices.csv','utf8'));
+const geo=JSON.parse(readFileSync('public/data/zip-geography.json','utf8'));
+const price=createPricingModel(data,geo);
+test('source prices remain exact including leading-zero ZIPs',()=>{for(const zip of ['00501','10001'])for(const r of price(zip)){const original=data.find(x=>x.zip5===zip&&x.procedure_code===r.procedure_code);assert.equal(r.fair_price_mid_usd,original.fair_price_mid_usd);assert.equal(r.fair_price_low_usd,original.fair_price_low_usd);assert.equal(r.fair_price_high_usd,original.fair_price_high_usd)}});
+test('98027 receives all procedures and nearby geographic references',()=>{const rows=price('98027');assert.equal(rows.length,144);assert.equal(rows[0].state,'WA');assert.equal(rows[0].model_method,'Nearby ZIP model');assert.ok(rows[0].model_sources.includes('98101'));assert.deepEqual(rows,createPricingModel(data,geo)('98027'));for(const r of rows){assert.ok(+r.fair_price_low_usd<=+r.fair_price_mid_usd&&+r.fair_price_mid_usd<=+r.fair_price_high_usd);const donors=data.filter(x=>x.procedure_code===r.procedure_code&&r.model_sources.split(', ').includes(x.zip5)).map(x=>+x.fair_price_mid_usd);assert.ok(+r.fair_price_mid_usd>=Math.min(...donors)-.01&&+r.fair_price_mid_usd<=Math.max(...donors)+.01)}});
+test('unknown five-digit ZIP uses an explicit national fallback',()=>{const r=price('00000');assert.equal(r.length,144);assert.equal(r[0].model_method,'National fallback');assert.equal(r[0].state,'');assert.ok(r.every(x=>Number.isFinite(+x.fair_price_mid_usd)));assert.deepEqual(price('abcde'),[]);assert.deepEqual(price('1234'),[])});
+test('missing geography gracefully falls back, with unchanged exact values',()=>{const fallback=createPricingModel(data);assert.equal(fallback('98027')[0].model_method,'National fallback');assert.equal(fallback('10001')[0].model_method,'Source ZIP estimate')});
+test('Alaska and Hawaii do not borrow continental reference ZIPs',()=>{for(const zip of ['99502','96814']){const r=price(zip)[0];const state=geo[zip][1];assert.ok(r.model_sources.split(', ').every(z=>geo[z][1]===state))}});
+test('new ZIP estimates feed bill analysis',()=>{const r=price('98027').find(r=>r.procedure_code==='99213');const line={id:'a',code:'99213',date:'2026-01-01',provider:'A',modifier:'',units:1,amount:+r.fair_price_high_usd+100,confirmed:true,comparable:true};assert.ok(analyze([line],price('98027'),'98027').some(i=>i.type==='price'));assert.ok(!analyze([{...line,comparable:false}],price('98027'),'98027').some(i=>i.type==='price'))});

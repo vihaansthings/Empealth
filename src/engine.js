@@ -1,3 +1,4 @@
+import {extractBill} from './extraction.js';
 export const money = value => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(value);
 export function parseCSV(text) {
   const rows = []; let row = [], field = '', quoted = false;
@@ -13,30 +14,17 @@ export function parseCSV(text) {
   return rows.map(values => Object.fromEntries(headers.map((h, i) => [h, values[i] || ''])));
 }
 export const validCode = code => /^(?:\d{5}|\d{4}[FTU]|[A-Z]\d{4})$/.test(code);
-export function parseBill(text) {
-  const rows = [];
-  for (const source of text.split('\n')) {
-    // Conservative extraction: require an explicit decimal amount. Never interpret a code or date as money.
-    const code = source.match(/\b(?:D\d{4}|\d{5}|\d{4}[FTU]|[A-Z]\d{4})\b/i);
-    const amounts = [...source.matchAll(/(?:\$\s*)?(-?(?:\d{1,3}(?:,\d{3})+|\d+)\.\d{2})\b/g)];
-    if (!code || !amounts.length) continue;
-    const amount = Number(amounts.at(-1)[1].replaceAll(',', ''));
-    const date = source.match(/\b(?:\d{4}-\d{2}-\d{2}|\d{1,2}\/\d{1,2}\/\d{2,4})\b/)?.[0] || '';
-    const units = source.match(/\b(?:qty|units?)\s*[:x]?\s*(\d+)\b/i)?.[1] || '1';
-    const modifier = source.slice(code.index + code[0].length).match(/^[- ](26|TC|59|76|77|91)\b/i)?.[1] || '';
-    rows.push({ id: `line-${rows.length + 1}`, code: code[0].toUpperCase(), description: source.slice(code.index + code[0].length).replace(/\$?\s*-?[\d,]+\.\d{2}/g, '').trim(), date, provider: '', modifier, units: Number(units), amount, confirmed: false, comparable: false });
-  }
-  return rows;
-}
+export function parseBill(text) { return extractBill(text).rows; }
 export function analyze(rows, data, zip, statedTotal = '') {
   const issues = []; const references = new Map(data.filter(r => r.zip5 === zip).map(r => [r.procedure_code, r]));
   for (const row of rows) {
     const add = (type, title, detail) => issues.push({ id: `${row.id}-${type}`, rowId: row.id, code: row.code, type, title, detail });
     if (!row.confirmed) { add('verify', 'Confirm the extracted line', 'Check the code, date, provider, modifier, units and line total against the original bill.'); continue; }
-    if (!validCode(row.code)) add('code', 'Code format needs review', 'This does not match a standard CPT, CDT or HCPCS code format. Ask the provider for the complete code.');
+    if (!row.code) add('coverage', 'Procedure code needed', 'This charge can be reviewed by description. Ask the provider for its procedure code before making a price comparison.');
+    else if (!validCode(row.code)) add('code', 'Code format needs review', 'This does not match a standard CPT, CDT or HCPCS code format. Ask the provider for the complete code.');
     else if (!data.some(r => r.procedure_code === row.code)) add('coverage', 'Code not in the procedure catalog', 'The procedure catalog is not a complete code directory. A missing code does not mean incorrect billing.');
     if (!Number.isFinite(row.amount) || row.amount < 0 || !Number.isInteger(row.units) || row.units < 1) add('units', 'Check the amount or units', 'Credits and nonstandard quantities require manual review. Price comparisons are skipped.');
-    const duplicate = rows.find(r => r.id !== row.id && r.confirmed && r.code === row.code && r.date && r.date === row.date && r.provider.trim() && r.provider.trim().toLowerCase() === row.provider.trim().toLowerCase() && r.modifier === row.modifier && r.amount === row.amount && r.units === row.units);
+    const duplicate = rows.find(r => r.id !== row.id && r.confirmed && row.code && r.code === row.code && r.date && r.date === row.date && r.provider.trim() && r.provider.trim().toLowerCase() === row.provider.trim().toLowerCase() && r.modifier === row.modifier && r.amount === row.amount && r.units === row.units);
     if (duplicate) add('duplicate', 'Possible repeated charge', 'The same code, date, provider, modifier, units and amount appear more than once. Repeat services can be legitimate. Request clarification.');
     const ref = references.get(row.code);
     if (ref && row.comparable && Number.isInteger(row.units) && row.units > 0 && row.amount >= 0 && row.amount / row.units > Number(ref.fair_price_high_usd)) add('price', 'Above the modeled range', `${money(row.amount / row.units)} per unit exceeds the modeled upper estimate of ${money(Number(ref.fair_price_high_usd))}. This is a discussion reference, not evidence of overcharging.`);

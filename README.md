@@ -22,6 +22,9 @@ Deploy `dist/` to a static host at the domain root, served over HTTPS. No backen
 ## Features
 
 - Local JPG, PNG, WebP and BMP OCR, camera-file capture, text PDFs and scanned PDFs. Limits: 25 MB and 20 PDF pages. English OCR.
+- Per-page scan results, readable text recovery and an enhanced OCR retry. PDFs with readable headers and scanned charge tables receive OCR when their text layer yields no charges.
+- Extraction supports uncoded service lines, wrapped code/amount lines and positioned PDF columns. Statement balances and unmatched monetary lines remain visible separately. Ambiguous amount columns require review.
+- Expanded breakdown includes draft and confirmed totals, per-unit calculations, comparable price ranges, original source lines and linked CMS/CFPB billing guidance.
 - Editable OCR draft with manual entry and original extracted text. Users must check every line against the source. Tables vary; extraction is deliberately conservative and not all lines are detected.
 - Possible repeated charges only when confirmed code, date, provider, modifier, units and amount match. Date strings must match exactly. Repeat services may be legitimate.
 - Code-format checks supporting CPT, CDT and HCPCS shapes. Codes absent from the sample are coverage gaps, not evidence of an invalid code.
@@ -45,5 +48,7 @@ Files and bill fields stay in browser memory. Reloading or clearing the bill rem
 ## Verification
 
 `tests/pricing.test.js` verifies interpolation, fallback, region isolation, source preservation and billing integration. `tests/engine.test.js` checks data integrity, quoted CSV fields, conservative extraction, confirmation gating, duplicate specificity, ZIP and scope gating, unit normalization, coverage versus invalid format, totals, and deterministic script wording.
+
+`tests/extraction.test.js` covers uncoded charges, wrapped lines, amount-column selection, statement totals, page boundaries, PDF coordinates and confirmation-gated financial calculations. Browser upload smoke tests use generated PNG and mixed text/image PDF fixtures.
 
 Built with Vite, Tesseract.js, PDF.js and Lucide. OCR reference: https://github.com/naptha/tesseract.js/blob/master/docs/api.md . PDF reference: https://mozilla.github.io/pdf.js/examples/ .

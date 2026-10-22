@@ -5,3 +5,7 @@ public/ocr/
 public/data/prices.csv
 public/data/zip-geography.json
 public/data/zip-geography-LICENSE.txt
+
+.env
+.env.*
+!.env.example

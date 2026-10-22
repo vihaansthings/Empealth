@@ -1,3 +1,4 @@
+import {hasEstimate} from './catalog.js';
 import {extractBill} from './extraction.js';
 export const money = value => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(value);
 export function parseCSV(text) {
@@ -27,7 +28,7 @@ export function analyze(rows, data, zip, statedTotal = '') {
     const duplicate = rows.find(r => r.id !== row.id && r.confirmed && row.code && r.code === row.code && r.date && r.date === row.date && r.provider.trim() && r.provider.trim().toLowerCase() === row.provider.trim().toLowerCase() && r.modifier === row.modifier && r.amount === row.amount && r.units === row.units);
     if (duplicate) add('duplicate', 'Possible repeated charge', 'The same code, date, provider, modifier, units and amount appear more than once. Repeat services can be legitimate. Request clarification.');
     const ref = references.get(row.code);
-    if (ref && row.comparable && Number.isInteger(row.units) && row.units > 0 && row.amount >= 0 && row.amount / row.units > Number(ref.fair_price_high_usd)) add('price', 'Above the modeled range', `${money(row.amount / row.units)} per unit exceeds the modeled upper estimate of ${money(Number(ref.fair_price_high_usd))}. This is a discussion reference, not evidence of overcharging.`);
+    if (hasEstimate(ref) && row.comparable && Number.isInteger(row.units) && row.units > 0 && row.amount >= 0 && row.amount / row.units > Number(ref.fair_price_high_usd)) add('price', 'Above the modeled range', `${money(row.amount / row.units)} per unit exceeds the modeled upper estimate of ${money(Number(ref.fair_price_high_usd))}. This is a discussion reference, not evidence of overcharging.`);
   }
   if (statedTotal !== '' && Number.isFinite(Number(statedTotal)) && rows.length && rows.every(r => r.confirmed && Number.isFinite(r.amount))) {
     const sum = rows.reduce((a, r) => a + r.amount, 0);

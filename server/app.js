@@ -8,21 +8,27 @@ function json(res, status, body) {
   res.end(JSON.stringify(body));
 }
 async function readJSON(req) {
+  // Vercel's Node helpers may have already consumed and parsed the request body.
+  if (req.body !== undefined) {
+    const encoded = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+    if (Buffer.byteLength(encoded || '') > 65536) throw new ReviewError('Bill request is too large.', 413);
+    try { return JSON.parse(encoded); } catch { throw new ReviewError('Send a valid bill review request.'); }
+  }
   let size = 0, parts = [];
   for await (const part of req) { size += part.length; if (size > 65536) throw new ReviewError('Bill request is too large.', 413); parts.push(part); }
   try { return JSON.parse(Buffer.concat(parts).toString()); } catch { throw new ReviewError('Send a valid bill review request.'); }
 }
-export function createApp({pricing, apiKey, model, origin, dist = resolve('dist'), generate = generateReview, rateLimit = 10, maxDailyRequests = 200, now = Date.now}) {
+export function createHandler({pricing, apiKey, model, origin, dist = resolve('dist'), generate = generateReview, rateLimit = 10, maxDailyRequests = 200, now = Date.now}) {
   const clients = new Map(); let active = 0, daily = 0, dayStart = now();
-  return createServer(async (req,res) => {
+  return async (req,res) => {
     try {
       const path = new URL(req.url, 'http://localhost').pathname;
       if (path.startsWith('/api/')) {
         if (path !== '/api/review') return json(res,404,{error:'Not found.'});
         if (req.method !== 'POST') return json(res,405,{error:'Use POST for bill reviews.'});
         // Exact configured origin in production. No permissive CORS or forwarded-host trust.
-        const allowed = origin || `http://${req.headers.host}`;
-        if (req.headers.origin !== allowed || (req.headers['sec-fetch-site'] && !['same-origin','none'].includes(req.headers['sec-fetch-site']))) return json(res,403,{error:'Open AI review from the app.'});
+        const allowed = origin ? (Array.isArray(origin) ? origin : [origin]) : [`http://${req.headers.host}`];
+        if (!allowed.includes(req.headers.origin) || (req.headers['sec-fetch-site'] && !['same-origin','none'].includes(req.headers['sec-fetch-site']))) return json(res,403,{error:'Open AI review from the app.'});
         if (!req.headers['content-type']?.startsWith('application/json')) return json(res,415,{error:'Use a JSON bill request.'});
         if (!apiKey) return json(res,503,{error:'AI review is not configured on this server yet. Local checks remain available.'});
         const time=now();
@@ -46,5 +52,6 @@ export function createApp({pricing, apiKey, model, origin, dist = resolve('dist'
       res.writeHead(200, {'Content-Type':mime[extname(file)]||'application/octet-stream', 'X-Content-Type-Options':'nosniff', 'Referrer-Policy':'same-origin'});
       res.end(req.method==='HEAD'?undefined:body);
     } catch(e) { if(!res.headersSent)json(res,e instanceof ReviewError?e.status:500,{error:e instanceof ReviewError?e.message:'The review could not be completed. Please try again.'}); }
-  });
+  };
 }
+export function createApp(options) { return createServer(createHandler(options)); }

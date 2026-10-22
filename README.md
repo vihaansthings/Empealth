@@ -12,11 +12,13 @@ The API uses the [OpenAI Responses API with Structured Outputs](https://develope
 
 ## Deploy
 
-This version needs a **Node server**, not only static hosting. Set your hosting service's secret `OPENAI_API_KEY` and set `NODE_ENV=production` and `APP_ORIGIN` to the exact public HTTPS origin, with no trailing slash. Run `pnpm install && pnpm build` during deployment and `pnpm start` to serve the app and API on one origin. `PORT` defaults to 3001. The runtime needs the repository's `public/data`, installed dependencies and built `dist` directory. Use HTTPS through your hosting service or reverse proxy.
+**Vercel:** the included `api/review.js` function and `vercel.json` run the AI endpoint alongside the frontend. Add `OPENAI_API_KEY` as a Vercel project secret for the intended environments, then redeploy. Vercel deployment URLs are allowed automatically; set `APP_ORIGIN` to an additional custom domain if needed. The function bundles the price and ZIP data produced during the build.
+
+**Other hosts:** this version needs a **Node server**, not only static hosting. Set your hosting service's secret `OPENAI_API_KEY` and set `NODE_ENV=production` and `APP_ORIGIN` to the exact public HTTPS origin, with no trailing slash. Run `pnpm install && pnpm build` during deployment and `pnpm start` to serve the app and API on one origin. `PORT` defaults to 3001. The runtime needs the repository's `public/data`, installed dependencies and built `dist` directory. Use HTTPS through your hosting service or reverse proxy.
 
 The local key is not automatically installed on a hosting service. Static-only previews can still show procedures and local checks, but cannot perform AI review. `pnpm preview` is a static preview; use `pnpm start` to exercise the full built app.
 
-The server checks the configured origin and JSON request shape, limits payloads to 64 KB / 100 bill lines, and limits AI use to 10 requests per minute per direct connection address, 4 concurrent requests, and 200 requests per day per process. `AI_DAILY_REQUEST_LIMIT` changes the daily cap. These are in-memory limits that reset on restart. For a public production service, add authenticated access and shared rate limits at your hosting gateway; set a spending limit in the OpenAI project. The server deliberately does not trust arbitrary forwarded IP headers. Users behind one reverse proxy share the connection-address rate limit.
+The server checks the configured origin and JSON request shape, limits payloads to 64 KB / 100 bill lines, and limits AI use to 10 requests per minute per direct connection address, 4 concurrent requests, and 200 requests per day per process. `AI_DAILY_REQUEST_LIMIT` changes the daily cap. These are in-memory limits that reset on restart and apply per serverless instance on Vercel, so they are not an account-wide spend cap. For a public production service, add authenticated access and shared rate limits at your hosting gateway; set a spending limit in the OpenAI project. The server deliberately does not trust arbitrary forwarded IP headers. Users behind one reverse proxy share the connection-address rate limit.
 
 ## AI review and email
 

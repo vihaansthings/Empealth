@@ -4,10 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node scripts/prepare-data.mjs && node scripts/prepare-ocr.mjs && vite --host 127.0.0.1",
-    "build": "node scripts/prepare-data.mjs && node scripts/prepare-ocr.mjs && vite build",
+    "dev": "node scripts/prepare-data.mjs && node scripts/prepare-ocr.mjs && node scripts/dev.mjs",
+    "build": "node scripts/prepare-data.mjs && node scripts/prepare-ocr.mjs && vite build --configLoader runner",
     "preview": "vite preview --host 127.0.0.1",
-    "test": "node scripts/prepare-data.mjs && node --test tests/*.test.js"
+    "test": "node scripts/prepare-data.mjs && node --test tests/*.test.js",
+    "start": "node scripts/prepare-data.mjs && node server/index.js"
   },
   "dependencies": {
     "@tesseract.js-data/eng": "1.0.0",
@@ -18,5 +19,8 @@
   },
   "devDependencies": {
     "vite": "6.4.1"
+  },
+  "engines": {
+    "node": ">=22"
   }
 }

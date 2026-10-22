@@ -80,3 +80,20 @@ test('credit exhaustion is distinguished from transient rate limiting',async()=>
  const c=buildContext(payload(),pricing('10001'));
  await assert.rejects(generateReview(c,{apiKey:'x',fetchImpl:async()=>({ok:false,status:429,json:async()=>({error:{code:'credit_balance_exhausted'}})})}),e=>e.status===503&&/retrying will not fix/.test(e.message));
 });
+test('Vercel entry point loads bundled data, trusts configured origins and handles parsed request bodies',async()=>{
+ const oldKey=process.env.OPENAI_API_KEY, oldOrigin=process.env.APP_ORIGIN, oldFetch=globalThis.fetch;
+ process.env.OPENAI_API_KEY='test-only';process.env.APP_ORIGIN='https://app.test';
+ globalThis.fetch=async()=>({ok:true,json:async()=>completed(result)});
+ try {
+  const {default:handler}=await import('../api/review.js');
+  const call=async(body,origin)=>{let status,output;const res={writeHead(code){status=code},end(value){output=JSON.parse(value)}};
+   await handler({url:'/api/review',method:'POST',headers:{origin,'content-type':'application/json'},socket:{remoteAddress:'test'},body},res);return {status,output};};
+  assert.equal((await call(payload(),'https://wrong.test')).status,403);
+  const response=await call(payload(),'https://app.test');assert.equal(response.status,200);assert.equal(response.output.evidence,'Review recommended');
+  assert.equal((await call({padding:'x'.repeat(70000)},'https://app.test')).status,413);
+ } finally {
+  globalThis.fetch=oldFetch;
+  if(oldKey===undefined)delete process.env.OPENAI_API_KEY;else process.env.OPENAI_API_KEY=oldKey;
+  if(oldOrigin===undefined)delete process.env.APP_ORIGIN;else process.env.APP_ORIGIN=oldOrigin;
+ }
+});

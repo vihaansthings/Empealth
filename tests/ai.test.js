@@ -97,3 +97,12 @@ test('Vercel entry point loads bundled data, trusts configured origins and handl
   if(oldOrigin===undefined)delete process.env.APP_ORIGIN;else process.env.APP_ORIGIN=oldOrigin;
  }
 });
+
+test('email retains the synthetic-price limitation when the model omits it',async()=>{
+ const context=buildContext(payload(),pricing('10001'));
+ const generated=await generateReview(context,{apiKey:'test',fetchImpl:async()=>({ok:true,json:async()=>completed(result)})});
+ assert.match(generated.emailBody,/synthetic sample estimates, not observed market rates/);
+ const withDisclosure={...result,emailBody:'These are synthetic sample estimates. Please explain the charge.'};
+ const preserved=await generateReview(context,{apiKey:'test',fetchImpl:async()=>({ok:true,json:async()=>completed(withDisclosure)})});
+ assert.equal(preserved.emailBody,withDisclosure.emailBody);
+});

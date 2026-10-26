@@ -20,6 +20,14 @@ The local key is not automatically installed on a hosting service. Static-only p
 
 The server checks the configured origin and JSON request shape, limits payloads to 64 KB / 100 bill lines, and limits AI use to 10 requests per minute per direct connection address, 4 concurrent requests, and 200 requests per day per process. `AI_DAILY_REQUEST_LIMIT` changes the daily cap. These are in-memory limits that reset on restart and apply per serverless instance on Vercel, so they are not an account-wide spend cap. For a public production service, add authenticated access and shared rate limits at your hosting gateway; set a spending limit in the OpenAI project. The server deliberately does not trust arbitrary forwarded IP headers. Users behind one reverse proxy share the connection-address rate limit.
 
+## My bills
+
+Uploads and manual/sample bills save automatically in this browser on this device. The library keeps the original file, extracted text, line corrections and confirmations, ZIP, scan report, AI review, personal draft fields, and current edited email or phone script. AI consent is not restored when reopening a bill; regeneration requires a new opt-in. Each new upload gets a separate bill. Retry OCR updates the same bill.
+
+Use **My bills** to reopen or delete a bill, or download its original upload. Rename a bill with **Bill name** while it is open. **New bill** and **Close current bill** preserve the previous bill before clearing the active workspace. Failed saves are visibly marked, with a retry action, and switching bills does not discard unsaved work.
+
+This is browser-local storage, with no login or cross-device sync. Anyone using the same browser profile can access saved bills. Clearing site data, browser eviction, or private browsing can remove them; retain your own important originals. Files and library records are not uploaded to our server. Files uploaded before this feature was added cannot be recovered after their old session was closed.
+
 ## AI review and email
 
 1. Scan a bill or enter lines manually. Check extracted amounts, codes, units and dates against the original.
@@ -53,12 +61,14 @@ The app cannot establish fraud, upcoding, unbundling, clinical appropriateness, 
 
 ## Privacy
 
-Files, raw OCR text, bill descriptions, names and account numbers stay in browser memory. **AI is optional and remote.** After consent and a Generate action, structured codes, amounts, units, ZIP, review status and anonymous matching tokens are sent to the app server. Provider names and dates are replaced in the browser with local matching tokens. The server sends OpenAI only calculated facts, canonical catalog labels and review findings, with no matching tokens or personal email fields.
+Files, raw OCR text, bill descriptions, names and account numbers stay on this device. My bills persists them in this browser’s IndexedDB. **AI is optional and remote.** After consent and a Generate action, structured codes, amounts, units, ZIP, review status and anonymous matching tokens are sent to the app server. Provider names and dates are replaced in the browser with local matching tokens. The server sends OpenAI only calculated facts, canonical catalog labels and review findings, with no matching tokens or personal email fields.
 
-The app does not log or persist bill requests or AI drafts on its server. `store: false` disables Responses storage; it does not guarantee zero retention under OpenAI's API data policies. Hosting request-body logging must also remain disabled. Clearing the bill or reloading removes in-memory content; only saved procedure codes persist in localStorage. Clipboard content and downloads may include locally entered personal fields. Google Fonts and application assets load normally.
+The app does not log or persist bill requests or AI drafts on its server. `store: false` disables Responses storage; it does not guarantee zero retention under OpenAI's API data policies. Hosting request-body logging must also remain disabled. Reloading keeps saved bills in IndexedDB. Close current bill clears the active workspace without deleting the saved bill. Delete in My bills removes its original file, details, review, and draft from this browser. Saved procedure codes persist in localStorage. Clipboard content and downloads may include locally entered personal fields. Google Fonts and application assets load normally.
 
 ## Verification
 
 `tests/engine.test.js`, `tests/extraction.test.js`, and `tests/pricing.test.js` cover original data integrity, conservative extraction, scope and confirmation gating, duplicate specificity, total reconciliation and geographic estimates. `tests/ai.test.js` covers 150 unique catalog entries, unavailable-price handling, privacy filtering, server validation, evidence categories, partial bills, structured AI responses, refusal and failure states, quota exhaustion, origin checks, request limits and secret-file protection.
 
 Browser verification covers the catalog, search, saving, AI results with a mocked response, email personalization, stale response cancellation, API error display, clearing a bill and mobile layout. A live API check with synthetic bill data now succeeds after funding the API account. Generated email drafts retain a synthetic-price disclosure even if the model omits it. Production AI still requires the hosting environment secret.
+
+My bills verification covers PDF upload, separate records for new uploads, renaming, original-file download with byte comparison, and reopening saved AI reviews and edited drafts after reload. `tests/bill-store.test.js` checks stored files and missing amounts, independent updates/deletion, aborted-write preservation, and recovery when storage becomes available.

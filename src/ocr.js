@@ -58,6 +58,6 @@ export async function readBill(file, progress, signal, options={}) {
       }
     }
     check();return {text:pages.map(p=>`[Page ${p.page}]\n${p.text}`).join('\n\n'),pages:pages.map(({text,...p})=>({...p,characters:text.trim().length,lines:extractBill(text).rows.length})),warnings};
-  }catch(e){if(signal?.aborted)throw new Error('Scan canceled. Your previous breakdown is unchanged.');if(e.name==='PasswordException')throw new Error('This PDF is password protected. Export an unlocked copy and try again.');throw e;}
+  }catch(e){if(signal?.aborted)throw new Error('Scan canceled.');if(e.name==='PasswordException')throw new Error('This PDF is password protected. Export an unlocked copy and try again.');throw e;}
   finally{signal?.removeEventListener('abort',stop);await worker?.terminate().catch(()=>{});await pdf?.destroy().catch(()=>{});}
 }
